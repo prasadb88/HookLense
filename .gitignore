@@ -1,0 +1,19 @@
+node_modules/
+.env
+.env.*
+!.env.example
+
+dist/
+build/
+coverage/
+
+.vscode/
+.idea/
+
+*.log
+.DS_Store
+
+# Optional: Skip package lock files
+package-lock.json
+yarn.lock
+# npm-debug.log*
