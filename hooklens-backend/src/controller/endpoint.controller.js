@@ -1,6 +1,5 @@
 import WebhookEndpoint from '../models/WebhookEndpoint.js';
 
-
 export const createEndpoint = async (req, res) => {
     try {
         const { name, targetUrl, provider, secret, tenantId } = req.body;
@@ -27,8 +26,6 @@ export const createEndpoint = async (req, res) => {
     }
 };
 
-// @desc    Get all webhook endpoints
-// @route   GET /api/v1/endpoints
 export const getAllEndpoints = async (req, res) => {
     try {
         const endpoints = await WebhookEndpoint.find().sort({ createdAt: -1 });
@@ -42,8 +39,6 @@ export const getAllEndpoints = async (req, res) => {
     }
 };
 
-// @desc    Get single endpoint by token
-// @route   GET /api/v1/endpoints/:token
 export const getEndpointByToken = async (req, res) => {
     try {
         const { token } = req.params;
@@ -59,8 +54,6 @@ export const getEndpointByToken = async (req, res) => {
     }
 };
 
-// @desc    Update endpoint by token
-// @route   PATCH /api/v1/endpoints/:token
 export const updateEndpoint = async (req, res) => {
     try {
         const { token } = req.params;
@@ -84,8 +77,6 @@ export const updateEndpoint = async (req, res) => {
     }
 };
 
-// @desc    Delete endpoint by token
-// @route   DELETE /api/v1/endpoints/:token
 export const deleteEndpoint = async (req, res) => {
     try {
         const { token } = req.params;

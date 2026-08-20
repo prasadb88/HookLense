@@ -1,9 +1,6 @@
 import crypto from 'crypto';
 
 export class RazorpayAdapter {
-    /**
-     * Verify HMAC SHA256 signature using RAW Buffer
-     */
     static verifySignature(rawBodyBuffer, signatureHeader, secret) {
         if (!signatureHeader || !secret) {
             return { verified: false, reason: 'Missing signature header or webhook secret' };
@@ -30,9 +27,6 @@ export class RazorpayAdapter {
         }
     }
 
-    /**
-     * Parse Razorpay event metadata safely
-     */
     static extractMetadata(rawBodyBuffer) {
         try {
             const parsed = JSON.parse(rawBodyBuffer.toString('utf-8'));

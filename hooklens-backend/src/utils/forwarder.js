@@ -12,7 +12,6 @@ export const forwardWebhook = async (targetUrl, payloadBuffer, headers = {}) => 
         };
     }
 
-    // 1. SSRF Check
     const ssrfCheck = await validateTargetUrl(targetUrl);
     if (!ssrfCheck.safe) {
         return {
@@ -24,7 +23,6 @@ export const forwardWebhook = async (targetUrl, payloadBuffer, headers = {}) => 
         };
     }
 
-    // 2. Prepare Headers
     const outboundHeaders = { ...headers };
     delete outboundHeaders.host;
     delete outboundHeaders['content-length'];
@@ -39,7 +37,7 @@ export const forwardWebhook = async (targetUrl, payloadBuffer, headers = {}) => 
                 'x-forwarded-by': 'HookLens-Egress',
             },
             timeout: 10000,
-            maxRedirects: 0, // Redirects disabled for security
+            maxRedirects: 0,
         });
 
         return {
