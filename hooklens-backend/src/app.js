@@ -3,6 +3,8 @@ import cors from 'cors';
 import morgan from 'morgan';
 import webhookRoutes from './routes/webhook.routes.js';
 import endpointRoutes from './routes/endpoint.routes.js';
+import eventRoutes from './routes/event.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
 
 const app = express();
 
@@ -20,5 +22,7 @@ app.get('/health', (req, res) => {
 
 app.use('/api/v1/wh', webhookRoutes);
 app.use('/api/v1/endpoints', endpointRoutes);
+app.use('/api/v1/events', eventRoutes);
+app.use('/api/v1/analytics', analyticsRoutes);
 
 export default app;

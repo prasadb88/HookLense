@@ -1,10 +1,10 @@
 import dotenv from 'dotenv';
+dotenv.config();
+
 import app from './app.js';
 import connectDB from './db/Db.js';
 
 import './workers/delivery.worker.js';
-
-dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 
