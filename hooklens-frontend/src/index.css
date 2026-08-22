@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+:root {
+  /* Premium Layered Light Mode Variables */
+  --bg-app: #FAFBFC;
+  --bg-surface: #FFFFFF;
+  --bg-secondary: #F6F8FB;
+  --bg-tinted: #F3F7FF;
+  --bg-elevated: #F6F8FB;
+  --border-subtle: #E5EAF0;
+  --border-strong: #D8E6FF;
+  --text-primary: #111827;
+  --text-secondary: #667085;
+  --text-muted: #98A2B3;
+  --accent-primary: #2563EB;
+  --accent-hover: #1D4ED8;
+  
+  --status-success-bg: rgba(16, 185, 129, 0.08);
+  --status-success-text: #059669;
+  --status-success-border: rgba(16, 185, 129, 0.2);
+
+  --status-danger-bg: rgba(239, 68, 68, 0.08);
+  --status-danger-text: #DC2626;
+  --status-danger-border: rgba(239, 68, 68, 0.2);
+
+  --status-warning-bg: rgba(245, 158, 11, 0.08);
+  --status-warning-text: #D97706;
+  --status-warning-border: rgba(245, 158, 11, 0.2);
+
+  --status-info-bg: rgba(37, 99, 235, 0.08);
+  --status-info-text: #2563EB;
+  --status-info-border: rgba(37, 99, 235, 0.2);
+
+  --code-bg: #F3F7FF;
+  --code-text: #111827;
+}
+
+html.dark {
+  /* Clean Developer Console Dark Mode Variables */
+  --bg-app: #090B10;
+  --bg-surface: #11141A;
+  --bg-secondary: #171B23;
+  --bg-tinted: #141822;
+  --bg-elevated: #171B23;
+  --border-subtle: #252B36;
+  --border-strong: #333A48;
+  --text-primary: #F8FAFC;
+  --text-secondary: #A7B0C0;
+  --text-muted: #64748B;
+  --accent-primary: #3B82F6;
+  --accent-hover: #2563EB;
+
+  --status-success-bg: rgba(16, 185, 129, 0.1);
+  --status-success-text: #34D399;
+  --status-success-border: rgba(16, 185, 129, 0.2);
+
+  --status-danger-bg: rgba(239, 68, 68, 0.1);
+  --status-danger-text: #F87171;
+  --status-danger-border: rgba(239, 68, 68, 0.2);
+
+  --status-warning-bg: rgba(245, 158, 11, 0.1);
+  --status-warning-text: #FBBF24;
+  --status-warning-border: rgba(245, 158, 11, 0.2);
+
+  --status-info-bg: rgba(59, 130, 246, 0.1);
+  --status-info-text: #60A5FA;
+  --status-info-border: rgba(59, 130, 246, 0.2);
+
+  --code-bg: #05070A;
+  --code-text: #F8FAFC;
+}
+
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+
+/* Static Technical Grid Background */
+.bg-tech-grid {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(37, 99, 235, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(37, 99, 235, 0.03) 1px, transparent 1px);
+}
+
+/* Clean Feature Card Hover */
+.feature-card {
+  transition: transform 150ms ease-out, border-color 150ms ease-out, background-color 150ms ease-out;
+}
+.feature-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+}
+
+/* Clean Primary Button */
+.btn-primary {
+  background-color: var(--accent-primary);
+  color: #FFFFFF;
+  transition: transform 150ms ease-out, background-color 150ms ease-out;
+}
+.btn-primary:hover {
+  background-color: var(--accent-hover);
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+/* Developer Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
