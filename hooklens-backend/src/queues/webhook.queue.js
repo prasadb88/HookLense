@@ -16,8 +16,13 @@ export const webhookQueue = new Queue(WEBHOOK_QUEUE_NAME, {
     },
 });
 
-export const addWebhookToQueue = async (eventData) => {
+export const addWebhookToQueue = async (eventData, options = {}) => {
+    const isReplay = eventData.isManualReplay === true || options.isManualReplay === true;
+    const defaultJobId = isReplay
+        ? `replay_${eventData.eventId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+        : `wh_${eventData.eventId}`;
+
     return await webhookQueue.add('deliver-webhook', eventData, {
-        jobId: `wh_${eventData.eventId}`,
+        jobId: options.jobId || defaultJobId,
     });
 };

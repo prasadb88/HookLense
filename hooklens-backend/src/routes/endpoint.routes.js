@@ -6,8 +6,12 @@ import {
     updateEndpoint,
     deleteEndpoint,
 } from '../controller/endpoint.controller.js';
+import requireAuth from '../middleware/auth.middleware.js';
 
 const router = express.Router();
+
+// All endpoint management routes require authentication & tenant context
+router.use(requireAuth);
 
 router.route('/')
     .post(createEndpoint)

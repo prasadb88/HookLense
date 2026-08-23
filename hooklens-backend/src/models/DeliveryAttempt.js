@@ -9,7 +9,8 @@ const deliveryAttemptSchema = new mongoose.Schema(
             index: true,
         },
         tenantId: {
-            type: String,
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Tenant',
             required: true,
             index: true,
         },
@@ -50,5 +51,8 @@ const deliveryAttemptSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
+
+deliveryAttemptSchema.index({ tenantId: 1, createdAt: -1 });
+deliveryAttemptSchema.index({ tenantId: 1, eventId: 1 });
 
 export default mongoose.model('DeliveryAttempt', deliveryAttemptSchema);

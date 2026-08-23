@@ -8,23 +8,26 @@ import DeliveryAttempt from '../models/DeliveryAttempt.js';
 export const deliveryWorker = new Worker(
     WEBHOOK_QUEUE_NAME,
     async (job) => {
-        const { eventId, targetUrl, rawBody, headers, tenantId } = job.data;
+        const { eventId, targetUrl, rawBody, headers, tenantId, isManualReplay, initialAttemptNumber = 0 } = job.data;
         const rawBodyBuffer = Buffer.isBuffer(rawBody)
             ? rawBody
             : Buffer.from(rawBody?.data || rawBody || '');
 
         const deliveryResult = await forwardWebhook(targetUrl, rawBodyBuffer, headers);
 
+        const attemptNumber = initialAttemptNumber + job.attemptsMade + 1;
+
         const attempt = await DeliveryAttempt.create({
             eventId,
             tenantId,
             targetUrl,
-            attemptNumber: job.attemptsMade + 1,
+            attemptNumber,
             status: deliveryResult.status,
             httpStatus: deliveryResult.httpStatus,
             latencyMs: deliveryResult.latencyMs,
             responseBody: deliveryResult.responseBody,
             errorMessage: deliveryResult.errorMessage,
+            isManualReplay: isManualReplay === true,
         });
 
         const event = await WebhookEvent.findById(eventId);
@@ -34,7 +37,7 @@ export const deliveryWorker = new Worker(
         }
 
         console.log(
-            `⚡ [Worker] Job ${job.id} | Event ${eventId} | Status: ${deliveryResult.status} (${deliveryResult.httpStatus || 'ERR'}) | Latency: ${deliveryResult.latencyMs}ms`
+            `⚡ [Worker] Job ${job.id} | Event ${eventId} | Status: ${deliveryResult.status} (${deliveryResult.httpStatus || 'ERR'}) | Latency: ${deliveryResult.latencyMs}ms | Replay: ${isManualReplay === true}`
         );
 
         if (deliveryResult.status !== 'SUCCEEDED') {

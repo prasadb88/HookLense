@@ -1,14 +1,14 @@
+import mongoose from 'mongoose';
 import WebhookEvent from '../models/WebhookEvent.js';
 import DeliveryAttempt from '../models/DeliveryAttempt.js';
-import WebhookEndpoint from '../models/WebhookEndpoint.js';
 
 // @desc    Get aggregate metrics (Total, Success Rate, Latency, Dead Lettered)
 // @route   GET /api/v1/analytics/overview
 export const getAnalyticsOverview = async (req, res) => {
     try {
-        const { tenantId = 'default_tenant' } = req.query;
+        const tenantId = new mongoose.Types.ObjectId(req.user.tenantId);
 
-        // १. WebhookEvent वरून एकूण आणि स्टेटसचे आकडे काढणे
+        // 1. Aggregate event stats scoped by tenantId
         const eventStats = await WebhookEvent.aggregate([
             { $match: { tenantId } },
             {
@@ -31,7 +31,7 @@ export const getAnalyticsOverview = async (req, res) => {
             },
         ]);
 
-        // २. DeliveryAttempt वरून सरासरी लेटन्सी (Avg Latency) काढणे
+        // 2. Aggregate latency stats scoped by tenantId
         const latencyStats = await DeliveryAttempt.aggregate([
             { $match: { tenantId, latencyMs: { $ne: null } } },
             {
@@ -78,7 +78,7 @@ export const getAnalyticsOverview = async (req, res) => {
 // @route   GET /api/v1/analytics/timeseries
 export const getTimeSeriesAnalytics = async (req, res) => {
     try {
-        const { tenantId = 'default_tenant' } = req.query;
+        const tenantId = new mongoose.Types.ObjectId(req.user.tenantId);
 
         const timeSeries = await WebhookEvent.aggregate([
             { $match: { tenantId } },

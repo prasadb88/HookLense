@@ -3,7 +3,8 @@ import mongoose from 'mongoose';
 const webhookEventSchema = new mongoose.Schema(
     {
         tenantId: {
-            type: String,
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Tenant',
             required: true,
             index: true,
         },
@@ -91,6 +92,10 @@ const webhookEventSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+webhookEventSchema.index({ tenantId: 1, createdAt: -1 });
+webhookEventSchema.index({ tenantId: 1, endpointId: 1 });
+webhookEventSchema.index({ tenantId: 1, status: 1 });
+webhookEventSchema.index({ tenantId: 1, provider: 1 });
 
 webhookEventSchema.index(
     { tenantId: 1, provider: 1, providerEventId: 1 },
@@ -99,7 +104,6 @@ webhookEventSchema.index(
         partialFilterExpression: { providerEventId: { $type: 'string' } },
     }
 );
-
 
 webhookEventSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 

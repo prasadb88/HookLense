@@ -4,14 +4,15 @@ import { nanoid } from 'nanoid';
 const webhookEndpointSchema = new mongoose.Schema(
     {
         tenantId: {
-            type: String,
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Tenant',
             required: true,
-            default: 'default_tenant',
             index: true,
         },
         name: {
             type: String,
             required: true,
+            trim: true,
         },
         token: {
             type: String,
@@ -22,6 +23,7 @@ const webhookEndpointSchema = new mongoose.Schema(
         targetUrl: {
             type: String,
             default: '',
+            trim: true,
         },
         provider: {
             type: String,
@@ -30,7 +32,8 @@ const webhookEndpointSchema = new mongoose.Schema(
         },
         secret: {
             type: String,
-            default: 'rzp_test_secret_key_123',
+            default: () => `sec_${nanoid(24)}`,
+            select: false,
         },
         secretVersion: {
             type: Number,
@@ -43,5 +46,8 @@ const webhookEndpointSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
+
+webhookEndpointSchema.index({ tenantId: 1, createdAt: -1 });
+webhookEndpointSchema.index({ tenantId: 1, token: 1 });
 
 export default mongoose.model('WebhookEndpoint', webhookEndpointSchema);
