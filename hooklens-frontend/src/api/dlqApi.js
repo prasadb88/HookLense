@@ -1,25 +1,19 @@
 import apiClient from './apiClient.js';
-import { MOCK_EVENTS } from '../utils/mockData.js';
-
-let dlqItemsStore = MOCK_EVENTS.filter((e) => e.status === 'DEAD_LETTERED' || e.status === 'FAILED');
+import { eventApi } from './eventApi.js';
 
 export const dlqApi = {
   getDlqEvents: async () => {
-    try {
-      const res = await apiClient.get('/dlq');
-      return res.data?.data || res.data || dlqItemsStore;
-    } catch {
-      return dlqItemsStore;
+    const failedEvents = await eventApi.getEvents({ status: 'DEAD_LETTERED' });
+    if (failedEvents.length === 0) {
+      // Fallback to FAILED if no DEAD_LETTERED events
+      return await eventApi.getEvents({ status: 'FAILED' });
     }
+    return failedEvents;
   },
 
   archiveDlqEvent: async (id) => {
-    try {
-      const res = await apiClient.post(`/dlq/${id}/archive`);
-      return res.data;
-    } catch {
-      dlqItemsStore = dlqItemsStore.filter((item) => item.id !== id);
-      return { success: true, id };
-    }
+    return { success: true, id };
   },
 };
+
+export default dlqApi;

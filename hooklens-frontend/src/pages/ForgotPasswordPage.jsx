@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { authApi } from '../api/authApi.js';
 import ThemeToggle from '../components/layout/ThemeToggle.jsx';
-import logoImg from '../assets/logo.png';
+import Logo from '../components/common/Logo.jsx';
 import {
   Loader2,
   ArrowLeft,
@@ -88,10 +88,7 @@ export const ForgotPasswordPage = () => {
       {/* Top Header */}
       <header className="px-6 py-4 flex items-center justify-between z-20">
         <Link to="/" className="flex items-center gap-2.5">
-          <img src={logoImg} alt="HookLens Logo" className="h-7 w-auto object-contain" />
-          <span className="font-bold text-[var(--text-primary)] font-mono text-base tracking-tight">
-            HookLens
-          </span>
+          <Logo className="w-[150px] sm:w-[175px] h-auto object-contain shrink-0" />
         </Link>
         <ThemeToggle />
       </header>
@@ -102,7 +99,7 @@ export const ForgotPasswordPage = () => {
           
           {/* Official Logo */}
           <div className="text-center mb-6">
-            <img src={logoImg} alt="HookLens Logo" className="h-9 w-auto mx-auto mb-4 object-contain" />
+            <Logo className="w-[160px] sm:w-[180px] h-auto mx-auto mb-4 object-contain" />
             
             {!submitted ? (
               <>
@@ -219,7 +216,7 @@ export const ForgotPasswordPage = () => {
           <div className="flex gap-4">
             <a href="#privacy" className="hover:text-[var(--text-primary)]">Privacy</a>
             <a href="#terms" className="hover:text-[var(--text-primary)]">Terms</a>
-            <a href="https://docs.hooklens.dev" target="_blank" rel="noreferrer" className="hover:text-[var(--text-primary)]">Documentation</a>
+            <Link to="/developer" className="hover:text-[var(--text-primary)]">Documentation</Link>
           </div>
         </div>
       </footer>

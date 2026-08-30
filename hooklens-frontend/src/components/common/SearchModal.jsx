@@ -1,12 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, Webhook, Activity, ArrowRight, CornerDownLeft } from 'lucide-react';
-import { MOCK_EVENTS, MOCK_ENDPOINTS } from '../../utils/mockData.js';
+import { Search, X, Webhook, Activity, ArrowRight, CornerDownLeft, Loader2 } from 'lucide-react';
+import { eventApi } from '../../api/eventApi.js';
+import { endpointApi } from '../../api/endpointApi.js';
 import StatusBadge from './StatusBadge.jsx';
 
 export const SearchModal = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
+  const [events, setEvents] = useState([]);
+  const [endpoints, setEndpoints] = useState([]);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const loadRealData = async () => {
+      setLoading(true);
+      try {
+        const [evts, eps] = await Promise.all([
+          eventApi.getEvents().catch(() => []),
+          endpointApi.getEndpoints().catch(() => []),
+        ]);
+        setEvents(evts || []);
+        setEndpoints(eps || []);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadRealData();
+  }, [isOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -14,8 +36,6 @@ export const SearchModal = ({ isOpen, onClose }) => {
         e.preventDefault();
         if (isOpen) {
           onClose();
-        } else {
-          // Open search modal
         }
       }
       if (e.key === 'Escape' && isOpen) {
@@ -29,24 +49,24 @@ export const SearchModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const filteredEvents = query.trim()
-    ? MOCK_EVENTS.filter(
+    ? events.filter(
         (e) =>
-          e.event.toLowerCase().includes(query.toLowerCase()) ||
-          e.id.toLowerCase().includes(query.toLowerCase()) ||
-          e.provider.toLowerCase().includes(query.toLowerCase()) ||
-          e.endpoint.toLowerCase().includes(query.toLowerCase()) ||
-          (e.responseCode && e.responseCode.toString().includes(query))
+          (e.eventType || e.event || '').toLowerCase().includes(query.toLowerCase()) ||
+          (e.id || '').toLowerCase().includes(query.toLowerCase()) ||
+          (e.provider || '').toLowerCase().includes(query.toLowerCase()) ||
+          (e.endpointName || e.endpoint || '').toLowerCase().includes(query.toLowerCase()) ||
+          (e.httpStatus && e.httpStatus.toString().includes(query))
       )
-    : MOCK_EVENTS.slice(0, 4);
+    : events.slice(0, 4);
 
   const filteredEndpoints = query.trim()
-    ? MOCK_ENDPOINTS.filter(
+    ? endpoints.filter(
         (ep) =>
-          ep.name.toLowerCase().includes(query.toLowerCase()) ||
-          ep.targetUrl.toLowerCase().includes(query.toLowerCase()) ||
-          ep.provider.toLowerCase().includes(query.toLowerCase())
+          (ep.name || '').toLowerCase().includes(query.toLowerCase()) ||
+          (ep.targetUrl || '').toLowerCase().includes(query.toLowerCase()) ||
+          (ep.provider || '').toLowerCase().includes(query.toLowerCase())
       )
-    : MOCK_ENDPOINTS.slice(0, 3);
+    : endpoints.slice(0, 3);
 
   const handleSelectEvent = (eventId) => {
     onClose();
@@ -75,9 +95,10 @@ export const SearchModal = ({ isOpen, onClose }) => {
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search events, IDs, endpoints, status codes... (e.g. payment.captured, evt_8f2a91, 503)"
+            placeholder="Search events, IDs, endpoints, status codes... (e.g. payment.captured, 500)"
             className="w-full bg-transparent text-sm font-mono text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none"
           />
+          {loading && <Loader2 className="w-4 h-4 text-blue-500 animate-spin shrink-0" />}
           {query && (
             <button
               onClick={() => setQuery('')}
@@ -103,7 +124,7 @@ export const SearchModal = ({ isOpen, onClose }) => {
 
             {filteredEvents.length === 0 ? (
               <div className="text-center py-4 text-[var(--text-muted)] font-sans text-xs">
-                No matching events found for "{query}"
+                {loading ? 'Searching...' : `No matching events found for "${query}"`}
               </div>
             ) : (
               <div className="space-y-1">
@@ -117,17 +138,17 @@ export const SearchModal = ({ isOpen, onClose }) => {
                       <StatusBadge status={evt.status} />
                       <div className="min-w-0">
                         <div className="font-semibold text-[var(--text-primary)] group-hover:text-blue-500 transition-colors truncate">
-                          {evt.event}
+                          {evt.eventType || evt.event}
                         </div>
                         <div className="text-[11px] text-[var(--text-muted)] truncate">
-                          {evt.id} • {evt.provider} • {evt.endpoint}
+                          {evt.id} • {evt.provider} • {evt.endpointName || 'Endpoint'}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 text-[11px]">
-                      {evt.responseCode && (
-                        <span className={evt.responseCode >= 400 ? 'text-red-500 font-semibold' : 'text-emerald-500'}>
-                          {evt.responseCode}
+                      {evt.httpStatus && (
+                        <span className={evt.httpStatus >= 400 ? 'text-red-500 font-semibold' : 'text-emerald-500 font-semibold'}>
+                          HTTP {evt.httpStatus}
                         </span>
                       )}
                       <ArrowRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-blue-500 transition-colors" />
@@ -145,28 +166,34 @@ export const SearchModal = ({ isOpen, onClose }) => {
               <span>Endpoints ({filteredEndpoints.length})</span>
             </div>
 
-            <div className="space-y-1">
-              {filteredEndpoints.map((ep) => (
-                <div
-                  key={ep.id}
-                  onClick={() => handleSelectEndpoint(ep.id)}
-                  className="flex items-center justify-between p-2.5 rounded-lg hover:bg-[var(--bg-elevated)] cursor-pointer transition-colors group"
-                >
-                  <div className="min-w-0">
-                    <div className="font-semibold text-[var(--text-primary)] group-hover:text-blue-500 transition-colors truncate">
-                      {ep.name}
+            {filteredEndpoints.length === 0 ? (
+              <div className="text-center py-2 text-[var(--text-muted)] font-sans text-xs">
+                {loading ? 'Searching...' : 'No matching endpoints found'}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {filteredEndpoints.map((ep) => (
+                  <div
+                    key={ep.id}
+                    onClick={() => handleSelectEndpoint(ep.id)}
+                    className="flex items-center justify-between p-2.5 rounded-lg hover:bg-[var(--bg-elevated)] cursor-pointer transition-colors group"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-semibold text-[var(--text-primary)] group-hover:text-blue-500 transition-colors truncate">
+                        {ep.name}
+                      </div>
+                      <div className="text-[11px] text-[var(--text-muted)] truncate">
+                        {ep.targetUrl}
+                      </div>
                     </div>
-                    <div className="text-[11px] text-[var(--text-muted)] truncate">
-                      {ep.targetUrl}
+                    <div className="flex items-center gap-2 shrink-0 text-[11px] text-emerald-500">
+                      <span>{ep.successRate || 0}% Success</span>
+                      <ArrowRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-blue-500 transition-colors" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0 text-[11px] text-emerald-500">
-                    <span>{ep.successRate}% Success</span>
-                    <ArrowRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-blue-500 transition-colors" />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -178,7 +205,7 @@ export const SearchModal = ({ isOpen, onClose }) => {
             </span>
             <span>↑↓ Navigate</span>
           </div>
-          <span>HookLens Intelligence Search</span>
+          <span>HookLens Gateway Intelligence Search</span>
         </div>
       </div>
     </div>

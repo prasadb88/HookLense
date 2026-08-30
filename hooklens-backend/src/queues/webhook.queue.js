@@ -22,7 +22,11 @@ export const addWebhookToQueue = async (eventData, options = {}) => {
         ? `replay_${eventData.eventId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
         : `wh_${eventData.eventId}`;
 
-    return await webhookQueue.add('deliver-webhook', eventData, {
+    const jobOptions = {
         jobId: options.jobId || defaultJobId,
-    });
+        ...(isReplay ? { attempts: 1 } : {}),
+        ...options,
+    };
+
+    return await webhookQueue.add('deliver-webhook', eventData, jobOptions);
 };

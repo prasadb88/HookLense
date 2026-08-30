@@ -6,7 +6,9 @@ export const JsonViewer = ({ data, title = 'JSON Payload' }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState('pretty'); // 'pretty' | 'raw'
 
-  const jsonString = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  const jsonString = data !== undefined && data !== null
+    ? (typeof data === 'string' ? data : JSON.stringify(data, null, 2))
+    : '{}';
 
   const handleCopy = () => {
     if (navigator.clipboard) {

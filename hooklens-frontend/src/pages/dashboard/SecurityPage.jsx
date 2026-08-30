@@ -4,7 +4,7 @@ import LoadingState from '../../components/common/LoadingState.jsx';
 import ErrorState from '../../components/common/ErrorState.jsx';
 import SecurityBadge from '../../components/common/SecurityBadge.jsx';
 import { formatDate } from '../../utils/formatters.js';
-import { ShieldCheck, ShieldAlert, Lock, RefreshCw, EyeOff, Terminal } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Lock, RefreshCw, EyeOff, Terminal, Sparkles, Globe } from 'lucide-react';
 
 export const SecurityPage = () => {
   const [stats, setStats] = useState(null);
@@ -18,7 +18,7 @@ export const SecurityPage = () => {
       const data = await securityApi.getSecurityOverview();
       setStats(data);
     } catch (err) {
-      setError(err.message || 'Failed to load security audit data');
+      setError(err?.response?.data?.message || err?.message || 'Failed to load security audit data');
     } finally {
       setLoading(false);
     }
@@ -52,36 +52,52 @@ export const SecurityPage = () => {
           <Lock className="w-4 h-4 text-emerald-500 mb-2" />
           <div className="font-semibold text-[var(--text-primary)]">HMAC Signatures</div>
           <div className="text-[11px] text-[var(--text-muted)] font-sans">Cryptographic Validations</div>
-          <div className="text-blue-500 font-semibold pt-1">{stats.hmacVerified?.toLocaleString()} Verified</div>
+          <div className="text-blue-500 font-semibold pt-1">{stats?.hmacVerified?.toLocaleString() || 0} Verified</div>
         </div>
 
         <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-1 shadow-sm">
           <RefreshCw className="w-4 h-4 text-blue-500 mb-2" />
           <div className="font-semibold text-[var(--text-primary)]">Freshness Guard</div>
           <div className="text-[11px] text-[var(--text-muted)] font-sans">300s Timestamp Drift</div>
-          <div className="text-blue-500 font-semibold pt-1">{stats.freshnessProtected?.toLocaleString()} Checked</div>
+          <div className="text-blue-500 font-semibold pt-1">{stats?.freshnessProtected?.toLocaleString() || 0} Checked</div>
         </div>
 
         <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-1 shadow-sm">
           <ShieldAlert className="w-4 h-4 text-amber-500 mb-2" />
           <div className="font-semibold text-[var(--text-primary)]">Replay Protection</div>
           <div className="text-[11px] text-[var(--text-muted)] font-sans">Payload Deduplication</div>
-          <div className="text-amber-500 font-semibold pt-1">{stats.replayProtected?.toLocaleString()} Deduplicated</div>
+          <div className="text-amber-500 font-semibold pt-1">{stats?.replayProtected?.toLocaleString() || 0} Deduplicated</div>
         </div>
 
         <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-1 shadow-sm">
           <Terminal className="w-4 h-4 text-red-500 mb-2" />
           <div className="font-semibold text-[var(--text-primary)]">SSRF Egress Guard</div>
           <div className="text-[11px] text-[var(--text-muted)] font-sans">Private IP Filter</div>
-          <div className="text-red-500 font-semibold pt-1">{stats.ssrfBlocked} Blocked</div>
+          <div className="text-red-500 font-semibold pt-1">{stats?.ssrfBlocked || 0} Blocked</div>
         </div>
 
         <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-1 shadow-sm">
           <EyeOff className="w-4 h-4 text-violet-500 mb-2" />
           <div className="font-semibold text-[var(--text-primary)]">PII Redaction</div>
           <div className="text-[11px] text-[var(--text-muted)] font-sans">Automated Log Masking</div>
-          <div className="text-violet-500 font-semibold pt-1">{stats.piiRedacted?.toLocaleString()} Masked</div>
+          <div className="text-violet-500 font-semibold pt-1">{stats?.piiRedacted?.toLocaleString() || 0} Masked</div>
         </div>
+      </div>
+
+      {/* Upcoming Egress Infrastructure Feature */}
+      <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-2xl p-5 shadow-sm space-y-3 font-mono text-xs">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-blue-500" />
+            <h3 className="text-xs font-semibold text-[var(--text-primary)] font-mono">Dedicated Static Egress IPs & Custom Domains</h3>
+          </div>
+          <span className="px-2 py-0.5 text-[9px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded font-semibold uppercase">
+            Coming Soon
+          </span>
+        </div>
+        <p className="text-[11px] text-[var(--text-muted)] font-sans leading-relaxed">
+          Allow corporate firewalls to whitelist dedicated static outbound delivery IP ranges (`192.0.2.0/24`) and bind custom CNAME ingress endpoints (`webhooks.yourcompany.com`).
+        </p>
       </div>
 
       {/* Security Events Audit Table */}
@@ -91,7 +107,7 @@ export const SecurityPage = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[750px]">
             <thead>
               <tr className="border-b border-[var(--border-subtle)] text-[10px] text-[var(--text-muted)] uppercase tracking-wider bg-[var(--bg-app)]">
                 <th className="py-3 px-4">Event ID / Type</th>
@@ -103,23 +119,31 @@ export const SecurityPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-subtle)] text-xs">
-              {stats.recentSecurityEvents?.map((sec) => (
-                <tr key={sec.id} className="hover:bg-[var(--bg-elevated)] transition-colors">
-                  <td className="py-3.5 px-4 font-semibold text-[var(--text-primary)]">
-                    <span>{sec.id}</span>
+              {stats?.recentSecurityEvents?.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-6 text-center text-[var(--text-muted)] font-mono">
+                    No security incidents recorded. All egress calls are clean.
                   </td>
-                  <td className="py-3.5 px-4">
-                    <SecurityBadge type={sec.type} severity={sec.severity} />
-                  </td>
-                  <td className="py-3.5 px-4 text-[var(--text-secondary)]">
-                    <div>{sec.endpoint}</div>
-                    <div className="text-[11px] text-[var(--text-muted)] font-sans">{sec.provider}</div>
-                  </td>
-                  <td className="py-3.5 px-4 text-blue-600 dark:text-blue-400 font-semibold">{sec.ip}</td>
-                  <td className="py-3.5 px-4 text-[var(--text-secondary)] max-w-sm truncate">{sec.details}</td>
-                  <td className="py-3.5 px-4 text-[var(--text-muted)]">{formatDate(sec.timestamp)}</td>
                 </tr>
-              ))}
+              ) : (
+                stats?.recentSecurityEvents?.map((sec) => (
+                  <tr key={sec.id} className="hover:bg-[var(--bg-elevated)] transition-colors">
+                    <td className="py-3.5 px-4 font-semibold text-[var(--text-primary)]">
+                      <span>{sec.id}</span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <SecurityBadge type={sec.type} severity={sec.severity} />
+                    </td>
+                    <td className="py-3.5 px-4 text-[var(--text-secondary)]">
+                      <div className="truncate max-w-[140px]">{sec.endpoint}</div>
+                      <div className="text-[11px] text-[var(--text-muted)] font-sans">{sec.provider}</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-blue-600 dark:text-blue-400 font-semibold select-all truncate max-w-[120px]">{sec.ip}</td>
+                    <td className="py-3.5 px-4 text-[var(--text-secondary)] max-w-xs truncate">{sec.details}</td>
+                    <td className="py-3.5 px-4 text-[var(--text-muted)] whitespace-nowrap">{formatDate(sec.timestamp)}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

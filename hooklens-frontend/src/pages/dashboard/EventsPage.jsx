@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { eventApi } from '../../api/eventApi.js';
+import { getSocket } from '../../socket/socketClient.js';
 import LoadingState from '../../components/common/LoadingState.jsx';
 import ErrorState from '../../components/common/ErrorState.jsx';
 import EmptyState from '../../components/common/EmptyState.jsx';
@@ -9,14 +10,26 @@ import { formatDate, formatDuration } from '../../utils/formatters.js';
 import { Search, RefreshCw } from 'lucide-react';
 
 export const EventsPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Filters
-  const [search, setSearch] = useState('');
-  const [provider, setProvider] = useState('');
-  const [status, setStatus] = useState('');
+  // Filters initialized from URL query params if present
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [provider, setProvider] = useState(searchParams.get('provider') || '');
+  const [status, setStatus] = useState(searchParams.get('status') || '');
+
+  // Keep state in sync with URL searchParams
+  useEffect(() => {
+    const urlStatus = searchParams.get('status') || '';
+    const urlProvider = searchParams.get('provider') || '';
+    const urlSearch = searchParams.get('search') || '';
+
+    setStatus(urlStatus);
+    setProvider(urlProvider);
+    setSearch(urlSearch);
+  }, [searchParams]);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -25,7 +38,7 @@ export const EventsPage = () => {
       const data = await eventApi.getEvents({ search, provider, status });
       setEvents(data);
     } catch (err) {
-      setError(err.message || 'Failed to load events');
+      setError(err?.response?.data?.message || err?.message || 'Failed to load events');
     } finally {
       setLoading(false);
     }
@@ -34,6 +47,87 @@ export const EventsPage = () => {
   useEffect(() => {
     fetchEvents();
   }, [search, provider, status]);
+
+  // Real-time Socket.IO event listeners
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleWebhookReceived = (data) => {
+      const newEvt = {
+        id: data.eventId || data.id,
+        _id: data.eventId || data.id,
+        eventType: data.eventType || 'webhook.event',
+        provider: data.provider || 'CUSTOM',
+        status: data.status === 'SUCCEEDED' ? 'SUCCESS' : data.status || 'QUEUED',
+        attempts: 0,
+        maxAttempts: 5,
+        latency: 0,
+        receivedAt: data.createdAt || new Date().toISOString(),
+      };
+      setEvents((prev) => {
+        if (prev.some((e) => e.id === newEvt.id)) {
+          return prev.map((e) => (e.id === newEvt.id ? { ...e, ...newEvt } : e));
+        }
+        return [newEvt, ...prev];
+      });
+    };
+
+    const handleDeliveryStatus = (data) => {
+      setEvents((prev) =>
+        prev.map((evt) => {
+          if (evt.id === data.eventId || evt.id === data.id) {
+            return {
+              ...evt,
+              status: data.status === 'SUCCEEDED' ? 'SUCCESS' : data.status,
+              httpStatus: data.httpStatus !== undefined ? data.httpStatus : evt.httpStatus,
+              latency: data.latencyMs !== undefined ? data.latencyMs : evt.latency,
+              attempts: data.attemptNumber || evt.attempts || 1,
+            };
+          }
+          return evt;
+        })
+      );
+    };
+
+    socket.on('webhook.received', handleWebhookReceived);
+    socket.on('delivery.succeeded', handleDeliveryStatus);
+    socket.on('delivery.failed', handleDeliveryStatus);
+    socket.on('delivery.retry', handleDeliveryStatus);
+    socket.on('replay.completed', handleDeliveryStatus);
+
+    return () => {
+      socket.off('webhook.received', handleWebhookReceived);
+      socket.off('delivery.succeeded', handleDeliveryStatus);
+      socket.off('delivery.failed', handleDeliveryStatus);
+      socket.off('delivery.retry', handleDeliveryStatus);
+      socket.off('replay.completed', handleDeliveryStatus);
+    };
+  }, []);
+
+  const handleProviderChange = (val) => {
+    setProvider(val);
+    const newParams = new URLSearchParams(searchParams);
+    if (val) newParams.set('provider', val);
+    else newParams.delete('provider');
+    setSearchParams(newParams);
+  };
+
+  const handleStatusChange = (val) => {
+    setStatus(val);
+    const newParams = new URLSearchParams(searchParams);
+    if (val) newParams.set('status', val);
+    else newParams.delete('status');
+    setSearchParams(newParams);
+  };
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    const newParams = new URLSearchParams(searchParams);
+    if (val) newParams.set('search', val);
+    else newParams.delete('search');
+    setSearchParams(newParams);
+  };
 
   return (
     <div className="space-y-6 font-sans">
@@ -60,7 +154,7 @@ export const EventsPage = () => {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search by event type (e.g. payment.captured) or ID..."
             className="w-full pl-9 pr-3.5 py-2.5 bg-[var(--bg-app)] border border-[var(--border-subtle)] rounded-xl text-xs font-mono text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 transition-colors"
           />
@@ -69,23 +163,23 @@ export const EventsPage = () => {
         <div className="flex items-center gap-3">
           <select
             value={provider}
-            onChange={(e) => setProvider(e.target.value)}
+            onChange={(e) => handleProviderChange(e.target.value)}
             className="px-3 py-2.5 bg-[var(--bg-app)] border border-[var(--border-subtle)] rounded-xl text-xs font-mono text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
           >
             <option value="">All Providers</option>
-            <option value="Razorpay">Razorpay</option>
-            <option value="Stripe">Stripe</option>
-            <option value="WhatsApp">WhatsApp</option>
-            <option value="Custom">Custom</option>
+            <option value="RAZORPAY">Razorpay</option>
+            <option value="STRIPE">Stripe</option>
+            <option value="WHATSAPP">WhatsApp</option>
+            <option value="CUSTOM">Custom</option>
           </select>
 
           <select
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => handleStatusChange(e.target.value)}
             className="px-3 py-2.5 bg-[var(--bg-app)] border border-[var(--border-subtle)] rounded-xl text-xs font-mono text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
           >
             <option value="">All Statuses</option>
-            <option value="SUCCESS">SUCCESS</option>
+            <option value="SUCCEEDED">SUCCEEDED</option>
             <option value="FAILED">FAILED</option>
             <option value="RETRYING">RETRYING</option>
             <option value="QUEUED">QUEUED</option>
@@ -131,7 +225,7 @@ export const EventsPage = () => {
                     <td className="py-3.5 px-4 text-[var(--text-secondary)]">{evt.provider}</td>
                     <td className="py-3.5 px-4"><StatusBadge status={evt.status} /></td>
                     <td className="py-3.5 px-4 font-semibold text-[var(--text-primary)]">{evt.httpStatus ? `HTTP ${evt.httpStatus}` : 'N/A'}</td>
-                    <td className="py-3.5 px-4 text-[var(--text-secondary)]">{evt.attempts} / {evt.maxAttempts || 5}</td>
+                    <td className="py-3.5 px-4 text-[var(--text-secondary)]">{typeof evt.attempts === 'number' ? evt.attempts : 1} / {evt.maxAttempts || 5}</td>
                     <td className="py-3.5 px-4 text-[var(--text-secondary)]">{formatDuration(evt.latency)}</td>
                     <td className="py-3.5 px-4 text-[var(--text-muted)]">{formatDate(evt.receivedAt)}</td>
                   </tr>

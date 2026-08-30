@@ -35,6 +35,11 @@ const webhookEndpointSchema = new mongoose.Schema(
             default: () => `sec_${nanoid(24)}`,
             select: false,
         },
+        signingSecret: {
+            type: String,
+            default: () => `whsec_${nanoid(24)}`,
+            select: false,
+        },
         secretVersion: {
             type: Number,
             default: 1,

@@ -5,6 +5,8 @@ export const StatusBadge = ({ status, className = '' }) => {
     switch (status?.toUpperCase()) {
       case 'SUCCESS':
       case 'DELIVERED':
+      case 'ACTIVE':
+      case 'ENABLED':
       case '200':
         return {
           bg: 'bg-emerald-500/10 dark:bg-emerald-500/15',
@@ -47,6 +49,9 @@ export const StatusBadge = ({ status, className = '' }) => {
           border: 'border-purple-500/30',
           dot: 'bg-purple-500',
         };
+      case 'INACTIVE':
+      case 'PAUSED':
+      case 'DISABLED':
       default:
         return {
           bg: 'bg-zinc-500/10 dark:bg-zinc-500/15',

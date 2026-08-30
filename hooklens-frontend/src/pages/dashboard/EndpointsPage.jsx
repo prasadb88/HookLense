@@ -1,18 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { endpointApi } from '../../api/endpointApi.js';
+import { getSocket } from '../../socket/socketClient.js';
 import LoadingState from '../../components/common/LoadingState.jsx';
 import ErrorState from '../../components/common/ErrorState.jsx';
 import EmptyState from '../../components/common/EmptyState.jsx';
 import StatusBadge from '../../components/common/StatusBadge.jsx';
+import Modal from '../../components/common/Modal.jsx';
 import { formatDate } from '../../utils/formatters.js';
-import { Plus, Webhook, ExternalLink, Copy, Check, Trash2, Power } from 'lucide-react';
+import { Plus, Webhook, ExternalLink, Copy, Check, Trash2, Power, AlertTriangle } from 'lucide-react';
 
 export const EndpointsPage = () => {
   const [endpoints, setEndpoints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  const [deleteEndpointTarget, setDeleteEndpointTarget] = useState(null);
 
   const navigate = useNavigate();
 
@@ -23,7 +26,7 @@ export const EndpointsPage = () => {
       const data = await endpointApi.getEndpoints();
       setEndpoints(data);
     } catch (err) {
-      setError(err.message || 'Failed to load endpoints');
+      setError(err?.response?.data?.message || err?.message || 'Failed to load endpoints');
     } finally {
       setLoading(false);
     }
@@ -31,6 +34,28 @@ export const EndpointsPage = () => {
 
   useEffect(() => {
     fetchEndpoints();
+  }, []);
+
+  // Socket.IO real-time listener for updating endpoint metrics dynamically
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleUpdate = () => {
+      endpointApi.getEndpoints().then(setEndpoints).catch(() => {});
+    };
+
+    socket.on('webhook.received', handleUpdate);
+    socket.on('delivery.succeeded', handleUpdate);
+    socket.on('delivery.failed', handleUpdate);
+    socket.on('replay.completed', handleUpdate);
+
+    return () => {
+      socket.off('webhook.received', handleUpdate);
+      socket.off('delivery.succeeded', handleUpdate);
+      socket.off('delivery.failed', handleUpdate);
+      socket.off('replay.completed', handleUpdate);
+    };
   }, []);
 
   const handleCopy = (text, id) => {
@@ -41,19 +66,36 @@ export const EndpointsPage = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleDelete = async (id) => {
-    if (confirm('Are you sure you want to delete this webhook endpoint?')) {
-      await endpointApi.deleteEndpoint(id);
-      setEndpoints((prev) => prev.filter((ep) => ep.id !== id));
+  const confirmDeleteEndpoint = async () => {
+    if (!deleteEndpointTarget) return;
+    try {
+      await endpointApi.deleteEndpoint(deleteEndpointTarget.id);
+      setEndpoints((prev) => prev.filter((ep) => ep.id !== deleteEndpointTarget.id));
+    } catch (err) {
+      alert(err?.response?.data?.message || err?.message || 'Failed to delete endpoint');
+    } finally {
+      setDeleteEndpointTarget(null);
     }
   };
 
   const handleToggleStatus = async (ep) => {
-    const nextStatus = ep.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
-    await endpointApi.updateEndpoint(ep.id, { status: nextStatus });
+    const currentIsActive = ep.isActive !== false && ep.status === 'ACTIVE';
+    const nextIsActive = !currentIsActive;
+    const nextStatus = nextIsActive ? 'ACTIVE' : 'INACTIVE';
+
     setEndpoints((prev) =>
-      prev.map((item) => (item.id === ep.id ? { ...item, status: nextStatus } : item))
+      prev.map((item) =>
+        item.id === ep.id ? { ...item, isActive: nextIsActive, status: nextStatus } : item
+      )
     );
+
+    try {
+      await endpointApi.updateEndpoint(ep.id, { isActive: nextIsActive, status: nextStatus });
+      fetchEndpoints();
+    } catch (err) {
+      alert(err?.response?.data?.message || err?.message || 'Failed to update endpoint status');
+      fetchEndpoints();
+    }
   };
 
   if (loading) return <LoadingState message="Fetching configured webhook endpoints..." />;
@@ -112,6 +154,7 @@ export const EndpointsPage = () => {
                       <span className="truncate select-all">{ep.hooklensUrl}</span>
                       <button
                         onClick={() => handleCopy(ep.hooklensUrl, ep.id + '_hl')}
+                        aria-label="Copy HookLens URL"
                         className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 shrink-0"
                         title="Copy HookLens URL"
                       >
@@ -131,15 +174,15 @@ export const EndpointsPage = () => {
                 <div className="grid grid-cols-3 gap-2 py-3 border-y border-[var(--border-subtle)] text-center font-mono">
                   <div>
                     <div className="text-[10px] text-[var(--text-muted)] uppercase">Events</div>
-                    <div className="text-xs font-semibold text-[var(--text-primary)] mt-0.5">{ep.totalEvents?.toLocaleString() || '1,240'}</div>
+                    <div className="text-xs font-semibold text-[var(--text-primary)] mt-0.5">{ep.totalEvents?.toLocaleString() || '0'}</div>
                   </div>
                   <div>
                     <div className="text-[10px] text-[var(--text-muted)] uppercase">Success</div>
-                    <div className="text-xs font-semibold text-emerald-500 mt-0.5">{ep.successRate}%</div>
+                    <div className="text-xs font-semibold text-emerald-500 mt-0.5">{ep.successRate || 0}%</div>
                   </div>
                   <div>
                     <div className="text-[10px] text-[var(--text-muted)] uppercase">Avg Latency</div>
-                    <div className="text-xs font-semibold text-[var(--text-primary)] mt-0.5">{ep.avgLatency}ms</div>
+                    <div className="text-xs font-semibold text-[var(--text-primary)] mt-0.5">{ep.avgLatency !== undefined ? `${ep.avgLatency}ms` : '--'}</div>
                   </div>
                 </div>
               </div>
@@ -149,15 +192,17 @@ export const EndpointsPage = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleToggleStatus(ep)}
+                    aria-label={ep.status === 'ACTIVE' ? 'Pause Endpoint' : 'Activate Endpoint'}
                     title={ep.status === 'ACTIVE' ? 'Pause Endpoint' : 'Activate Endpoint'}
-                    className="p-1.5 text-[var(--text-muted)] hover:text-amber-500 p-1.5 rounded-lg bg-[var(--bg-app)] border border-[var(--border-subtle)] hover:bg-[var(--bg-elevated)] transition-colors"
+                    className="p-1.5 text-[var(--text-muted)] hover:text-amber-500 rounded-lg bg-[var(--bg-app)] border border-[var(--border-subtle)] hover:bg-[var(--bg-elevated)] transition-colors"
                   >
                     <Power className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => handleDelete(ep.id)}
+                    onClick={() => setDeleteEndpointTarget(ep)}
+                    aria-label="Delete Endpoint"
                     title="Delete Endpoint"
-                    className="p-1.5 text-[var(--text-muted)] hover:text-red-500 p-1.5 rounded-lg bg-[var(--bg-app)] border border-[var(--border-subtle)] hover:bg-[var(--bg-elevated)] transition-colors"
+                    className="p-1.5 text-[var(--text-muted)] hover:text-red-500 rounded-lg bg-[var(--bg-app)] border border-[var(--border-subtle)] hover:bg-[var(--bg-elevated)] transition-colors"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -173,6 +218,42 @@ export const EndpointsPage = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Styled Delete Confirmation Dialog */}
+      {deleteEndpointTarget && (
+        <Modal
+          isOpen={!!deleteEndpointTarget}
+          onClose={() => setDeleteEndpointTarget(null)}
+          title="Delete Webhook Endpoint"
+        >
+          <div className="space-y-4 font-mono text-xs">
+            <div className="flex items-start gap-3 p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500">
+              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-xs font-sans">Confirm Permanent Deletion</h4>
+                <p className="text-[11px] font-sans opacity-90 mt-0.5">
+                  Are you sure you want to delete <strong className="font-mono text-red-600 dark:text-red-400">{deleteEndpointTarget.name}</strong>? Incoming webhooks for this endpoint will no longer be ingested.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-subtle)]">
+              <button
+                onClick={() => setDeleteEndpointTarget(null)}
+                className="px-3.5 py-2 text-xs font-mono text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-app)] rounded-lg border border-[var(--border-subtle)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteEndpoint}
+                className="px-4 py-2 text-xs font-mono font-semibold text-white bg-red-600 hover:bg-red-500 rounded-lg border border-red-500 transition-colors shadow-sm"
+              >
+                Delete Endpoint
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

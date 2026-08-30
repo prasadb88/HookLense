@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { replayApi } from '../../api/replayApi.js';
+import { getSocket } from '../../socket/socketClient.js';
 import LoadingState from '../../components/common/LoadingState.jsx';
 import ErrorState from '../../components/common/ErrorState.jsx';
 import EmptyState from '../../components/common/EmptyState.jsx';
 import StatusBadge from '../../components/common/StatusBadge.jsx';
 import { formatDate, formatDuration } from '../../utils/formatters.js';
-import { RotateCcw, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const ReplaysPage = () => {
@@ -20,7 +21,7 @@ export const ReplaysPage = () => {
       const data = await replayApi.getReplays();
       setReplays(data);
     } catch (err) {
-      setError(err.message || 'Failed to load replays');
+      setError(err?.response?.data?.message || err?.message || 'Failed to load replays');
     } finally {
       setLoading(false);
     }
@@ -30,8 +31,25 @@ export const ReplaysPage = () => {
     fetchReplays();
   }, []);
 
-  if (loading) return <LoadingState message="Fetching replay history logs..." />;
-  if (error) return <ErrorState message={error} onRetry={fetchReplays} />;
+  // Socket.IO real-time update listener for replay completion
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleReplayCompleted = () => {
+      // Refresh replay logs when a manual or scheduled replay completes
+      replayApi.getReplays().then(setReplays).catch(() => {});
+    };
+
+    socket.on('replay.completed', handleReplayCompleted);
+
+    return () => {
+      socket.off('replay.completed', handleReplayCompleted);
+    };
+  }, []);
+
+  if (loading && replays.length === 0) return <LoadingState message="Fetching replay history logs..." />;
+  if (error && replays.length === 0) return <ErrorState message={error} onRetry={fetchReplays} />;
 
   return (
     <div className="space-y-6 font-sans">
@@ -59,7 +77,7 @@ export const ReplaysPage = () => {
       ) : (
         <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-2xl overflow-hidden shadow-sm font-mono text-xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[700px]">
               <thead>
                 <tr className="border-b border-[var(--border-subtle)] text-[10px] text-[var(--text-muted)] uppercase tracking-wider bg-[var(--bg-app)]">
                   <th className="py-3 px-4">Replay ID / Event ID</th>

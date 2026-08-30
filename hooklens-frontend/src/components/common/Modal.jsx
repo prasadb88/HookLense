@@ -19,13 +19,14 @@ export const Modal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-      <div className="bg-[#0F1117] border border-[#1E232F] rounded-xl max-w-lg w-full shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1E232F]">
-          <h3 className="text-sm font-semibold text-white">{title}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in font-sans">
+      <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)] bg-[var(--bg-app)]">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)] font-mono">{title}</h3>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-white p-1 rounded hover:bg-zinc-800 transition-colors"
+            aria-label="Close modal"
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--bg-elevated)] transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

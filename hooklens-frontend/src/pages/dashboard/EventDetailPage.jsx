@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { eventApi } from '../../api/eventApi.js';
+import { getSocket } from '../../socket/socketClient.js';
 import SkeletonLoader from '../../components/common/SkeletonLoader.jsx';
 import ErrorState from '../../components/common/ErrorState.jsx';
 import StatusBadge from '../../components/common/StatusBadge.jsx';
@@ -15,7 +16,6 @@ import {
   Copy,
   Check,
   ShieldCheck,
-  CheckCircle2,
 } from 'lucide-react';
 
 export const EventDetailPage = () => {
@@ -32,14 +32,16 @@ export const EventDetailPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const [evtData, attemptsData] = await Promise.all([
-        eventApi.getEventById(eventId),
-        eventApi.getEventAttempts(eventId),
-      ]);
+      const evtData = await eventApi.getEventById(eventId);
+      if (!evtData) {
+        setError('Event not found');
+        setLoading(false);
+        return;
+      }
       setEvent(evtData);
-      setAttempts(attemptsData);
+      setAttempts(evtData.attempts || []);
     } catch (err) {
-      setError(err.message || 'Failed to load event details');
+      setError(err?.response?.data?.message || err?.message || 'Failed to load event details');
     } finally {
       setLoading(false);
     }
@@ -47,6 +49,30 @@ export const EventDetailPage = () => {
 
   useEffect(() => {
     fetchData();
+  }, [eventId]);
+
+  // Real-time socket listener for active event details & delivery attempts
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleDeliveryUpdate = (data) => {
+      if (data.eventId === eventId || data.id === eventId) {
+        fetchData();
+      }
+    };
+
+    socket.on('delivery.succeeded', handleDeliveryUpdate);
+    socket.on('delivery.failed', handleDeliveryUpdate);
+    socket.on('delivery.retry', handleDeliveryUpdate);
+    socket.on('replay.completed', handleDeliveryUpdate);
+
+    return () => {
+      socket.off('delivery.succeeded', handleDeliveryUpdate);
+      socket.off('delivery.failed', handleDeliveryUpdate);
+      socket.off('delivery.retry', handleDeliveryUpdate);
+      socket.off('replay.completed', handleDeliveryUpdate);
+    };
   }, [eventId]);
 
   const handleCopyId = () => {
@@ -76,16 +102,23 @@ export const EventDetailPage = () => {
 
   const tabs = ['Overview', 'Attempts', 'Payload', 'Headers', 'Security'];
 
+  const isSuccess = event.status === 'SUCCESS' || event.status === 'SUCCEEDED';
+  const isFailed = event.status === 'FAILED' || event.status === 'DEAD_LETTERED';
+
   const verticalTimeline = [
     { label: 'Received Payload', time: event.receivedAt, detail: 'Ingestion Gateway', status: 'complete' },
     { label: 'HMAC Signature Verified', time: event.receivedAt, detail: 'Freshness window valid', status: 'complete' },
     { label: 'Queued in BullMQ', time: event.receivedAt, detail: 'Redis persistent stream', status: 'complete' },
     { label: 'Delivering to Target', time: event.receivedAt, detail: 'Egress Guard pass', status: 'complete' },
     {
-      label: event.status === 'SUCCESS' ? 'Delivered Successfully' : event.status === 'DEAD_LETTERED' ? 'Moved to DLQ' : 'Delivery Failed',
+      label: isSuccess
+        ? 'Delivered Successfully'
+        : isFailed
+        ? 'Moved to DLQ / Failed'
+        : 'Delivery In Progress',
       time: event.receivedAt,
-      detail: event.httpStatus ? `HTTP ${event.httpStatus}` : 'Timeout',
-      status: event.status === 'SUCCESS' ? 'complete' : 'failed',
+      detail: event.httpStatus ? `HTTP ${event.httpStatus}` : (isSuccess ? 'HTTP 200' : 'Queued'),
+      status: isSuccess ? 'complete' : isFailed ? 'failed' : 'pending',
     },
   ];
 
@@ -102,15 +135,15 @@ export const EventDetailPage = () => {
           </Link>
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold font-mono text-[var(--text-primary)]">{event.eventType}</h2>
+              <h2 className="text-xl font-bold font-mono text-[var(--text-primary)]">{event.eventType || 'webhook.event'}</h2>
               <StatusBadge status={event.status} />
             </div>
             <div className="flex items-center gap-3 text-xs font-mono text-[var(--text-muted)] mt-1">
               <span>{event.id}</span>
               <span>•</span>
-              <span className="text-indigo-500 font-semibold">{event.provider}</span>
+              <span className="text-indigo-500 font-semibold">{event.provider || 'CUSTOM'}</span>
               <span>•</span>
-              <span>{event.endpointName}</span>
+              <span>{event.endpointName || 'Webhook Endpoint'}</span>
             </div>
           </div>
         </div>
@@ -169,7 +202,9 @@ export const EventDetailPage = () => {
                         className={`absolute -left-6 top-0.5 w-3 h-3 rounded-full border-2 ${
                           item.status === 'complete'
                             ? 'bg-emerald-500 border-emerald-500'
-                            : 'bg-red-500 border-red-500'
+                            : item.status === 'failed'
+                            ? 'bg-red-500 border-red-500'
+                            : 'bg-amber-500 border-amber-500'
                         }`}
                       />
                       <div>
@@ -190,7 +225,7 @@ export const EventDetailPage = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 font-mono text-xs">
                   <div>
                     <span className="text-[var(--text-muted)] block text-[10px] uppercase">Provider</span>
-                    <span className="text-[var(--text-primary)] font-semibold mt-0.5 block">{event.provider}</span>
+                    <span className="text-[var(--text-primary)] font-semibold mt-0.5 block">{event.provider || 'CUSTOM'}</span>
                   </div>
                   <div>
                     <span className="text-[var(--text-muted)] block text-[10px] uppercase">Received At</span>
@@ -202,11 +237,13 @@ export const EventDetailPage = () => {
                   </div>
                   <div>
                     <span className="text-[var(--text-muted)] block text-[10px] uppercase">IP Address</span>
-                    <span className="text-[var(--text-primary)] mt-0.5 block">{event.ipAddress || '52.66.12.184'}</span>
+                    <span className="text-[var(--text-primary)] mt-0.5 block">{event.ipAddress || '127.0.0.1'}</span>
                   </div>
                   <div>
-                    <span className="text-[var(--text-muted)] block text-[10px] uppercase">Total Attempts</span>
-                    <span className="text-[var(--text-primary)] mt-0.5 block">{event.attempts} / {event.maxAttempts || 5}</span>
+                    <span className="text-[var(--text-muted)] block text-[10px] uppercase">Total Delivery Attempts</span>
+                    <span className="text-[var(--text-primary)] mt-0.5 block font-semibold">
+                      {attempts?.length || 0} Total ({attempts?.filter(a => !a.isManualReplay)?.length || 0} Auto, {attempts?.filter(a => a.isManualReplay)?.length || 0} Replays)
+                    </span>
                   </div>
                   <div>
                     <span className="text-[var(--text-muted)] block text-[10px] uppercase">Latency</span>
@@ -250,20 +287,24 @@ export const EventDetailPage = () => {
                 <div className="p-3 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg flex items-center justify-between">
                   <div>
                     <div className="font-semibold text-[var(--text-primary)]">HMAC Cryptographic Verification</div>
-                    <div className="text-[var(--text-muted)] text-[11px]">x-razorpay-signature verified with endpoint secret</div>
+                    <div className="text-[var(--text-muted)] text-[11px]">Webhook signature verification status ({event.signatureAlgorithm || 'HMAC-SHA256'})</div>
                   </div>
-                  <span className="px-2 py-0.5 text-[11px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 rounded">
-                    PASSED
+                  <span className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded border ${
+                    event.signatureVerified
+                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                      : 'bg-red-500/10 text-red-500 border-red-500/30'
+                  }`}>
+                    {event.signatureVerified ? 'PASSED' : 'FAILED'}
                   </span>
                 </div>
 
                 <div className="p-3 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg flex items-center justify-between">
                   <div>
                     <div className="font-semibold text-[var(--text-primary)]">Freshness & Idempotency Guard</div>
-                    <div className="text-[var(--text-muted)] text-[11px]">Timestamp within 300s window. Payload ID unique.</div>
+                    <div className="text-[var(--text-muted)] text-[11px]">Timestamp drift check. Unique event deduplication.</div>
                   </div>
-                  <span className="px-2 py-0.5 text-[11px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 rounded">
-                    PASSED
+                  <span className="px-2 py-0.5 text-[11px] font-mono font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 rounded">
+                    {event.duplicate ? 'DUPLICATE IGNORED' : 'PASSED'}
                   </span>
                 </div>
               </div>

@@ -3,6 +3,7 @@ import WebhookEndpoint from '../models/WebhookEndpoint.js';
 import WebhookEvent from '../models/WebhookEvent.js';
 import { verifyWebhookSignature, extractWebhookMetadata } from '../services/webhookVerification/index.js';
 import { addWebhookToQueue } from '../queues/webhook.queue.js';
+import { emitToTenant } from '../socket/socket.js';
 
 const SENSITIVE_HEADERS = new Set(['authorization', 'cookie', 'x-api-key', 'secret', 'proxy-authorization']);
 
@@ -33,7 +34,7 @@ export const ingestWebhook = async (req, res) => {
     }
 
     // 1. Find endpoint by public token (never trust client-supplied tenantId)
-    const endpoint = await WebhookEndpoint.findOne({ token, isActive: true }).select('+secret');
+    const endpoint = await WebhookEndpoint.findOne({ token, isActive: true }).select('+secret +signingSecret');
     if (!endpoint) {
       return res.status(404).json({
         success: false,
@@ -94,6 +95,21 @@ export const ingestWebhook = async (req, res) => {
       targetUrl: endpoint.targetUrl,
       rawBody: rawBodyBuffer,
       headers: sanitizedHeaders,
+      signingSecret: endpoint.signingSecret,
+    });
+
+    // Emit real-time webhook.received event to tenant room
+    emitToTenant(endpoint.tenantId, 'webhook.received', {
+      eventId: event._id.toString(),
+      id: event._id.toString(),
+      endpointId: endpoint.token,
+      provider: endpoint.provider,
+      providerEventId: event.providerEventId,
+      eventType: event.eventType,
+      status: 'QUEUED',
+      duplicate: false,
+      createdAt: event.createdAt,
+      receivedAt: event.createdAt,
     });
 
     // 6. Return 202 Accepted immediately

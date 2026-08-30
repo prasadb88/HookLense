@@ -1,77 +1,122 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authApi } from '../api/authApi.js';
-import { MOCK_USER } from '../utils/mockData.js';
+import { connectSocket, disconnectSocket } from '../socket/socketClient.js';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('hooklens_token') || null);
+  const [token, setToken] = useState(() => localStorage.getItem('hooklens_token') || null);
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('hooklens_user');
+    if (saved) {
+      try { return JSON.parse(saved); } catch { return null; }
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const initAuth = async () => {
-      if (token) {
-        try {
-          const userData = await authApi.getCurrentUser();
-          setUser(userData);
-        } catch {
-          setUser(MOCK_USER);
-        }
-      } else {
-        // Default demo session for smooth developer exploration
-        setUser(MOCK_USER);
-        setToken('mock_demo_token');
-        localStorage.setItem('hooklens_token', 'mock_demo_token');
+  // Helper to validate JWT expiration on client-side
+  const isJwtExpired = (jwtToken) => {
+    if (!jwtToken) return true;
+    try {
+      const parts = jwtToken.split('.');
+      if (parts.length !== 3) return true;
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (payload.exp && payload.exp * 1000 < Date.now()) {
+        return true;
       }
-      setLoading(false);
-    };
-
-    initAuth();
-  }, [token]);
-
-  const login = async (credentials) => {
-    const res = await authApi.login(credentials);
-    if (res.token) {
-      setToken(res.token);
-      localStorage.setItem('hooklens_token', res.token);
-      setUser(res.user);
+      return false;
+    } catch {
+      return true;
     }
-    return res;
-  };
-
-  const signup = async (userData) => {
-    const res = await authApi.signup(userData);
-    if (res.token) {
-      setToken(res.token);
-      localStorage.setItem('hooklens_token', res.token);
-      setUser(res.user);
-    }
-    return res;
-  };
-
-  const loginWithGoogle = async () => {
-    const res = await authApi.loginWithGoogle();
-    if (res.token) {
-      setToken(res.token);
-      localStorage.setItem('hooklens_token', res.token);
-      setUser(res.user);
-    }
-    return res;
   };
 
   const logout = () => {
     setToken(null);
     setUser(null);
     localStorage.removeItem('hooklens_token');
+    localStorage.removeItem('hooklens_user');
+    disconnectSocket();
   };
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const storedToken = localStorage.getItem('hooklens_token');
+      if (storedToken) {
+        if (isJwtExpired(storedToken)) {
+          logout();
+          setLoading(false);
+          return;
+        }
+        connectSocket(storedToken);
+        if (!user) {
+          try {
+            const userData = await authApi.getCurrentUser();
+            setUser(userData);
+            localStorage.setItem('hooklens_user', JSON.stringify(userData));
+          } catch {
+            logout();
+          }
+        }
+      } else {
+        logout();
+      }
+      setLoading(false);
+    };
+
+    initAuth();
+
+    const handleUnauthorized = () => {
+      logout();
+    };
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, []);
+
+  const login = async (credentials) => {
+    const res = await authApi.login(credentials);
+    if (res.token && res.user) {
+      setToken(res.token);
+      setUser(res.user);
+      localStorage.setItem('hooklens_token', res.token);
+      localStorage.setItem('hooklens_user', JSON.stringify(res.user));
+      connectSocket(res.token);
+    }
+    return res;
+  };
+
+  const signup = async (userData) => {
+    const res = await authApi.signup(userData);
+    if (res.token && res.user) {
+      setToken(res.token);
+      setUser(res.user);
+      localStorage.setItem('hooklens_token', res.token);
+      localStorage.setItem('hooklens_user', JSON.stringify(res.user));
+      connectSocket(res.token);
+    }
+    return res;
+  };
+
+  const loginWithGoogle = async (credential) => {
+    const res = await authApi.loginWithGoogle(credential);
+    if (res.token && res.user) {
+      setToken(res.token);
+      setUser(res.user);
+      localStorage.setItem('hooklens_token', res.token);
+      localStorage.setItem('hooklens_user', JSON.stringify(res.user));
+      connectSocket(res.token);
+    }
+    return res;
+  };
+
+  const isAuthenticated = !!token && !isJwtExpired(token);
 
   return (
     <AuthContext.Provider
       value={{
         user,
         token,
-        isAuthenticated: !!token,
+        isAuthenticated,
         loading,
         login,
         signup,
@@ -91,3 +136,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export default AuthContext;

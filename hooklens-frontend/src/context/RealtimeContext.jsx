@@ -35,18 +35,37 @@ export const RealtimeProvider = ({ children }) => {
         console.log('[HookLens WS] Connected to gateway');
       });
 
-      socketIo.on('webhook:received', (data) => {
+      const handleWebhookReceived = (data) => {
         addToast('New webhook received', `${data.eventType || 'event'} • ${data.provider || 'Webhook'}`, 'info');
         setRealtimeEvents((prev) => [data, ...prev.slice(0, 19)]);
-      });
+      };
 
-      socketIo.on('delivery:success', (data) => {
+      const handleDeliverySucceeded = (data) => {
         addToast('Delivery Succeeded', `${data.eventType || 'event'} delivered (HTTP ${data.httpStatus || 200})`, 'success');
-      });
+      };
 
-      socketIo.on('delivery:failed', (data) => {
-        addToast('Delivery Failed', `${data.eventType || 'event'} failed (HTTP ${data.httpStatus || 500})`, 'error');
-      });
+      const handleDeliveryFailed = (data) => {
+        addToast('Delivery Failed', `${data.eventType || 'event'} failed (${data.httpStatus ? `HTTP ${data.httpStatus}` : 'Error'})`, 'error');
+      };
+
+      const handleReplayCompleted = (data) => {
+        if (data.status === 'SUCCESS') {
+          addToast('Replay Completed', `Event ${data.id?.substring(0, 8) || ''} delivered successfully (HTTP ${data.httpStatus || 200})`, 'success');
+        } else {
+          addToast('Replay Delivery Failed', `Event ${data.id?.substring(0, 8) || ''} failed (${data.httpStatus ? `HTTP ${data.httpStatus}` : 'Error'})`, 'error');
+        }
+      };
+
+      socketIo.on('webhook:received', handleWebhookReceived);
+      socketIo.on('webhook.received', handleWebhookReceived);
+
+      socketIo.on('delivery:success', handleDeliverySucceeded);
+      socketIo.on('delivery.succeeded', handleDeliverySucceeded);
+
+      socketIo.on('delivery:failed', handleDeliveryFailed);
+      socketIo.on('delivery.failed', handleDeliveryFailed);
+
+      socketIo.on('replay.completed', handleReplayCompleted);
 
       setSocket(socketIo);
     } catch {

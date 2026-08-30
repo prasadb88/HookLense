@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import logoImg from '../../assets/logo.png';
+import { Logo } from '../common/Logo.jsx';
 import {
   LayoutDashboard,
   Webhook,
@@ -17,6 +17,9 @@ import {
   ChevronRight,
   Key,
   Layers,
+  Users,
+  Bell,
+  FileText,
 } from 'lucide-react';
 
 export const Sidebar = ({ isOpen, onClose, isCollapsed: propIsCollapsed, setIsCollapsed: propSetIsCollapsed }) => {
@@ -54,12 +57,7 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed: propIsCollapsed, setIsCo
         {/* Header / Official Logo */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-[var(--border-subtle)]">
           <NavLink to="/dashboard" className="flex items-center gap-2.5 min-w-0">
-            <img src={logoImg} alt="HookLens Logo" className="h-7 w-auto object-contain shrink-0" />
-            {!isCollapsed && (
-              <span className="font-bold text-[var(--text-primary)] tracking-tight text-base font-mono truncate">
-                HookLens
-              </span>
-            )}
+            <Logo className="w-[145px] sm:w-[170px] h-auto object-contain shrink-0 transition-opacity" />
           </NavLink>
 
           <div className="flex items-center gap-1">
@@ -132,25 +130,86 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed: propIsCollapsed, setIsCo
             </NavLink>
 
             <NavLink
-              to="/dashboard/settings#apikeys"
+              to="/dashboard/api-keys"
               onClick={onClose}
               title={isCollapsed ? 'API Keys' : undefined}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-mono font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-mono font-medium transition-colors ${
+                  isActive
+                    ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20 font-semibold'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'
+                }`
+              }
             >
               <Key className="w-4 h-4 shrink-0" />
               {!isCollapsed && <span>API Keys</span>}
             </NavLink>
 
-            <a
-              href="https://docs.hooklens.dev"
-              target="_blank"
-              rel="noreferrer"
+            <NavLink
+              to="/developer"
+              onClick={onClose}
               title={isCollapsed ? 'Documentation' : undefined}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-mono font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-mono font-medium transition-colors ${
+                  isActive
+                    ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20 font-semibold'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'
+                }`
+              }
             >
               <BookOpen className="w-4 h-4 shrink-0" />
               {!isCollapsed && <span>Documentation</span>}
-            </a>
+            </NavLink>
+          </div>
+
+          {/* Coming Soon Section */}
+          <div className="pt-2 pb-2 px-1">
+            <div className="h-px bg-[var(--border-subtle)] mb-4" />
+            {!isCollapsed && (
+              <div className="px-2 flex items-center justify-between text-[10px] font-mono font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">
+                <span>Coming Soon</span>
+                <span className="px-1.5 py-0.2 text-[9px] bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded font-mono font-semibold">SOON</span>
+              </div>
+            )}
+
+            <div
+              title={isCollapsed ? 'Team & Roles (Coming Soon)' : 'Multi-user team management & RBAC'}
+              className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-mono font-medium text-[var(--text-muted)] opacity-60 cursor-not-allowed select-none"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <Users className="w-4 h-4 shrink-0" />
+                {!isCollapsed && <span className="truncate">Team & Roles</span>}
+              </div>
+              {!isCollapsed && (
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] shrink-0">Soon</span>
+              )}
+            </div>
+
+            <div
+              title={isCollapsed ? 'Alerts & Webhooks (Coming Soon)' : 'Slack, Discord & Email notifications'}
+              className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-mono font-medium text-[var(--text-muted)] opacity-60 cursor-not-allowed select-none"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <Bell className="w-4 h-4 shrink-0" />
+                {!isCollapsed && <span className="truncate">Alerts & Slack</span>}
+              </div>
+              {!isCollapsed && (
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] shrink-0">Soon</span>
+              )}
+            </div>
+
+            <div
+              title={isCollapsed ? 'Audit Logs (Coming Soon)' : 'Compliance activity trail'}
+              className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-mono font-medium text-[var(--text-muted)] opacity-60 cursor-not-allowed select-none"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <FileText className="w-4 h-4 shrink-0" />
+                {!isCollapsed && <span className="truncate">Audit Trail</span>}
+              </div>
+              {!isCollapsed && (
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] shrink-0">Soon</span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -169,12 +228,12 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed: propIsCollapsed, setIsCo
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-full bg-[var(--bg-elevated)] border border-[var(--border-subtle)] flex items-center justify-center font-mono text-xs font-semibold text-blue-500 shrink-0">
-                {user?.name?.[0] || 'A'}
+                {user?.name?.[0]?.toUpperCase() || 'U'}
               </div>
               {!isCollapsed && (
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold text-[var(--text-primary)] truncate">{user?.name || 'Alex Rivera'}</div>
-                  <div className="text-[11px] text-[var(--text-muted)] truncate">{user?.email || 'alex@devcorp.io'}</div>
+                  <div className="text-xs font-semibold text-[var(--text-primary)] truncate">{user?.name || 'Authenticated User'}</div>
+                  <div className="text-[11px] text-[var(--text-muted)] truncate">{user?.email || ''}</div>
                 </div>
               )}
             </div>

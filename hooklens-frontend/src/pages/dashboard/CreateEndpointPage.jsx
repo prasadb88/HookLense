@@ -2,29 +2,26 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import EndpointForm from '../../components/endpoints/EndpointForm.jsx';
 import { endpointApi } from '../../api/endpointApi.js';
-import { Copy, Check, ArrowRight, Sparkles, Play, ExternalLink } from 'lucide-react';
+import { Copy, Check, ArrowRight, Sparkles, Play, ExternalLink, AlertCircle } from 'lucide-react';
 
 export const CreateEndpointPage = () => {
   const [loading, setLoading] = useState(false);
   const [createdEndpoint, setCreatedEndpoint] = useState(null);
+  const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [copiedSecret, setCopiedSecret] = useState(false);
   const [testResult, setTestResult] = useState(null);
 
   const navigate = useNavigate();
 
   const handleCreateEndpoint = async (formData) => {
     setLoading(true);
+    setError(null);
     try {
       const res = await endpointApi.createEndpoint(formData);
       setCreatedEndpoint(res);
-    } catch {
-      setCreatedEndpoint({
-        id: 'ep_' + Math.random().toString(36).substring(2, 9),
-        name: formData.name,
-        provider: formData.provider,
-        targetUrl: formData.targetUrl,
-        hooklensUrl: `https://api.hooklens.dev/wh/${Math.random().toString(36).substring(2, 10)}`,
-      });
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'Failed to create endpoint.');
     } finally {
       setLoading(false);
     }
@@ -38,13 +35,21 @@ export const CreateEndpointPage = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopySecret = (text) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+    }
+    setCopiedSecret(true);
+    setTimeout(() => setCopiedSecret(false), 2000);
+  };
+
   const handleTestEndpoint = async () => {
     if (!createdEndpoint) return;
     try {
       const res = await endpointApi.testEndpoint(createdEndpoint.id);
       setTestResult(res.message);
-    } catch {
-      setTestResult('Test webhook delivered cleanly (HTTP 200 - 142ms)');
+    } catch (err) {
+      setTestResult(`Test error: ${err.message}`);
     }
   };
 
@@ -56,6 +61,13 @@ export const CreateEndpointPage = () => {
           Route third-party provider events through HookLens Gateway
         </p>
       </div>
+
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs font-mono text-red-500 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {!createdEndpoint ? (
         <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-2xl p-6 shadow-xl">
@@ -88,6 +100,33 @@ export const CreateEndpointPage = () => {
               </button>
             </div>
           </div>
+
+          {/* Outbound Webhook Signing Secret Display */}
+          {createdEndpoint.signingSecret && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-mono font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                  Outbound Webhook Signing Secret (X-HookLens-Signature)
+                </label>
+                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono">Shown once only</span>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-[var(--bg-app)] border border-[var(--border-subtle)] rounded-xl font-mono text-xs">
+                <code className="text-emerald-600 dark:text-emerald-400 flex-1 truncate select-all">
+                  {createdEndpoint.signingSecret}
+                </code>
+                <button
+                  onClick={() => handleCopySecret(createdEndpoint.signingSecret)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-[var(--text-primary)] bg-[var(--bg-surface)] hover:bg-[var(--bg-elevated)] rounded-lg border border-[var(--border-subtle)] transition-colors shrink-0"
+                >
+                  {copiedSecret ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedSecret ? 'Copied ✓' : 'Copy Secret'}</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-[var(--text-muted)] mt-1.5 font-sans">
+                Save this secret securely. For security, it will not be shown again. HookLens uses it to sign outbound webhook deliveries sent to your backend.
+              </p>
+            </div>
+          )}
 
           {/* Provider Instructions */}
           <div className="p-4 bg-[var(--bg-app)] border border-[var(--border-subtle)] rounded-xl font-mono text-xs space-y-2">

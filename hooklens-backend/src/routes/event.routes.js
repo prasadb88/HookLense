@@ -1,5 +1,5 @@
 import express from 'express';
-import { getEvents, getEventById, replayEvent } from '../controller/event.controller.js';
+import { getEvents, getEventById, replayEvent, getReplays } from '../controller/event.controller.js';
 import requireAuth from '../middleware/auth.middleware.js';
 
 const router = express.Router();
@@ -8,6 +8,7 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.get('/', getEvents);
+router.get('/replays/history', getReplays);
 router.get('/:id', getEventById);
 router.post('/:id/replay', replayEvent);
 

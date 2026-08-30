@@ -1,5 +1,4 @@
 import apiClient from './apiClient.js';
-import { MOCK_USER } from '../utils/mockData.js';
 
 export const authApi = {
   login: async (credentials) => {
@@ -10,15 +9,7 @@ export const authApi = {
       if (err?.response?.data?.message) {
         throw new Error(err.response.data.message);
       }
-      // Fallback mock session for local development
-      return {
-        token: 'mock_jwt_token_hl_' + Date.now(),
-        user: {
-          id: MOCK_USER.id,
-          name: credentials.email.split('@')[0] || MOCK_USER.name,
-          email: credentials.email,
-        },
-      };
+      throw new Error('Login failed. Please check your credentials or network connection.');
     }
   },
 
@@ -30,23 +21,18 @@ export const authApi = {
       if (err?.response?.data?.message) {
         throw new Error(err.response.data.message);
       }
-      return {
-        token: 'mock_jwt_token_hl_' + Date.now(),
-        user: {
-          id: 'usr_' + Math.floor(Math.random() * 100000),
-          name: userData.name,
-          email: userData.email,
-        },
-      };
+      throw new Error('Signup failed. Please try again.');
     }
   },
 
-  // TODO: Connect Google OAuth backend when /auth/google endpoint is configured
-  loginWithGoogle: async () => {
+  loginWithGoogle: async (credential) => {
     try {
-      const res = await apiClient.get('/auth/google');
+      const res = await apiClient.post('/auth/google', { credential });
       return res.data;
-    } catch {
+    } catch (err) {
+      if (err?.response?.data?.message) {
+        throw new Error(err.response.data.message);
+      }
       throw new Error('Google sign-in was unsuccessful. Please try again.');
     }
   },
@@ -56,7 +42,6 @@ export const authApi = {
       const res = await apiClient.post('/auth/forgot-password', { email });
       return res.data;
     } catch {
-      // Return neutral message for security / enumeration defense
       return { success: true, message: 'If an account exists for this email, you will receive a reset link.' };
     }
   },
@@ -69,21 +54,21 @@ export const authApi = {
       if (err?.response?.data?.message) {
         throw new Error(err.response.data.message);
       }
-      // Check for invalid/expired token test case
-      if (token === 'invalid' || token === 'expired') {
-        throw new Error('This password reset link is no longer valid. Request a new reset link to continue.');
-      }
-      return { success: true, message: 'Password reset successful' };
+      throw new Error('Password reset link is invalid or expired.');
     }
   },
 
   getCurrentUser: async () => {
-    try {
-      const res = await apiClient.get('/auth/me');
-      return res.data;
-    } catch {
-      return MOCK_USER;
+    const storedUser = localStorage.getItem('hooklens_user');
+    if (storedUser) {
+      try {
+        return JSON.parse(storedUser);
+      } catch {
+        // Continue to API fallback
+      }
     }
+    const res = await apiClient.get('/auth/me');
+    return res.data?.user || res.data;
   },
 };
 

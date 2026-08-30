@@ -1,5 +1,6 @@
 import React from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { formatTimeIST } from '../../utils/formatters.js';
 
 export const VolumeChart = ({ data }) => {
   if (!data || !data.length) return null;
@@ -19,9 +20,17 @@ export const VolumeChart = ({ data }) => {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#1E232F" vertical={false} />
-          <XAxis dataKey="time" stroke="#6B7280" fontSize={11} tickLine={false} axisLine={false} />
+          <XAxis
+            dataKey="time"
+            stroke="#6B7280"
+            fontSize={11}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(tick) => formatTimeIST(tick, true)}
+          />
           <YAxis stroke="#6B7280" fontSize={11} tickLine={false} axisLine={false} />
           <Tooltip
+            labelFormatter={(label) => formatTimeIST(label, true)}
             contentStyle={{
               backgroundColor: '#0F1117',
               borderColor: '#1E232F',

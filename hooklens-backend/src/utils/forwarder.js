@@ -1,7 +1,8 @@
+import crypto from 'crypto';
 import axios from 'axios';
 import { validateTargetUrl } from './ssrfGuard.js';
 
-export const forwardWebhook = async (targetUrl, payloadBuffer, headers = {}) => {
+export const forwardWebhook = async (targetUrl, payloadBuffer, headers = {}, signingSecret = null) => {
     if (!targetUrl) {
         return {
             status: 'FAILED',
@@ -26,6 +27,15 @@ export const forwardWebhook = async (targetUrl, payloadBuffer, headers = {}) => 
     const outboundHeaders = { ...headers };
     delete outboundHeaders.host;
     delete outboundHeaders['content-length'];
+
+    if (signingSecret) {
+        const outboundSignature = crypto
+            .createHmac('sha256', signingSecret)
+            .update(payloadBuffer)
+            .digest('hex');
+        outboundHeaders['x-hooklens-signature'] = outboundSignature;
+        outboundHeaders['X-HookLens-Signature'] = outboundSignature;
+    }
 
     const startTime = Date.now();
 

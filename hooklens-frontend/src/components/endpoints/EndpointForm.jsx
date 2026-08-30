@@ -3,9 +3,11 @@ import { Webhook, ChevronDown, ChevronUp, Lock, ShieldCheck, AlertCircle, Loader
 
 export const EndpointForm = ({ onSubmit, loading = false, initialData = {} }) => {
   const [name, setName] = useState(initialData.name || '');
-  const [provider, setProvider] = useState(initialData.provider || 'Razorpay');
+  const [provider, setProvider] = useState(initialData.provider ? String(initialData.provider).toUpperCase() : 'RAZORPAY');
   const [targetUrl, setTargetUrl] = useState(initialData.targetUrl || '');
-  
+  const [secret, setSecret] = useState(initialData.secret || initialData.webhookSecret || '');
+  const [secretError, setSecretError] = useState('');
+
   // Advanced Settings Toggle & State
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [timeout, setTimeoutVal] = useState(initialData.timeout || 10);
@@ -31,10 +33,18 @@ export const EndpointForm = ({ onSubmit, loading = false, initialData = {} }) =>
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (provider === 'RAZORPAY' && !secret.trim()) {
+      setSecretError('Razorpay Webhook Secret is required.');
+      return;
+    }
+
+    setSecretError('');
     onSubmit({
       name: name || `${provider} Webhooks`,
-      provider,
+      provider: provider.toUpperCase(),
       targetUrl,
+      secret: secret.trim(),
       timeout: Number(timeout),
       maxRetries: Number(maxRetries),
       retryPolicy,
@@ -45,28 +55,32 @@ export const EndpointForm = ({ onSubmit, loading = false, initialData = {} }) =>
 
   const providersList = [
     {
-      id: 'Razorpay',
+      id: 'RAZORPAY',
       name: 'Razorpay',
-      desc: 'Payments, refunds and orders',
+      desc: 'Payments, refunds and orders (Active)',
       color: 'text-blue-500',
+      active: true,
     },
     {
-      id: 'Stripe',
-      name: 'Stripe',
-      desc: 'Payments, invoices and subscriptions',
-      color: 'text-violet-500',
-    },
-    {
-      id: 'WhatsApp',
-      name: 'WhatsApp Cloud API',
-      desc: 'Messages and business events',
-      color: 'text-emerald-500',
-    },
-    {
-      id: 'Custom',
-      name: 'Custom',
-      desc: 'Any HTTP webhook provider',
+      id: 'CUSTOM',
+      name: 'Custom / Generic',
+      desc: 'Any standard HTTP webhook payload (Active)',
       color: 'text-amber-500',
+      active: true,
+    },
+    {
+      id: 'STRIPE',
+      name: 'Stripe',
+      desc: 'Payments & subscriptions (Coming Soon)',
+      color: 'text-violet-500',
+      active: false,
+    },
+    {
+      id: 'WHATSAPP',
+      name: 'WhatsApp Cloud API',
+      desc: 'Messages & business events (Coming Soon)',
+      color: 'text-emerald-500',
+      active: false,
     },
   ];
 
@@ -98,19 +112,29 @@ export const EndpointForm = ({ onSubmit, loading = false, initialData = {} }) =>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {providersList.map((p) => {
             const isSelected = provider === p.id;
+            const isAvailable = p.active;
             return (
               <div
                 key={p.id}
-                onClick={() => setProvider(p.id)}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all select-none ${
-                  isSelected
-                    ? 'bg-blue-500/10 border-blue-500 shadow-sm'
-                    : 'bg-[var(--bg-app)] border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
+                onClick={() => {
+                  if (isAvailable) setProvider(p.id);
+                }}
+                className={`p-3.5 rounded-xl border transition-all select-none relative ${
+                  !isAvailable
+                    ? 'opacity-60 cursor-not-allowed bg-[var(--bg-app)]/50 border-[var(--border-subtle)]'
+                    : isSelected
+                    ? 'bg-blue-500/10 border-blue-500 shadow-sm cursor-pointer'
+                    : 'bg-[var(--bg-app)] border-[var(--border-subtle)] hover:border-[var(--border-strong)] cursor-pointer'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className={`font-mono text-xs font-bold ${p.color}`}>{p.name}</span>
-                  {isSelected && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
+                  {isSelected && isAvailable && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
+                  {!isAvailable && (
+                    <span className="px-1.5 py-0.5 text-[9px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded font-semibold uppercase">
+                      Soon
+                    </span>
+                  )}
                 </div>
                 <p className="text-[11px] text-[var(--text-muted)] font-sans mt-1">
                   {p.desc}
@@ -146,6 +170,37 @@ export const EndpointForm = ({ onSubmit, loading = false, initialData = {} }) =>
           </div>
         )}
       </div>
+
+      {/* Razorpay Webhook Secret */}
+      {provider === 'RAZORPAY' && (
+        <div>
+          <label htmlFor="razorpaySecret" className="block text-xs font-mono font-medium text-[var(--text-secondary)] mb-1.5">
+            Razorpay Webhook Secret
+          </label>
+          <input
+            id="razorpaySecret"
+            type="password"
+            required
+            value={secret}
+            onChange={(e) => {
+              setSecret(e.target.value);
+              if (secretError) setSecretError('');
+            }}
+            placeholder="Enter your Razorpay webhook secret"
+            className="w-full px-3.5 py-2.5 bg-[var(--bg-app)] border border-[var(--border-subtle)] rounded-xl text-xs font-mono text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 transition-colors"
+          />
+          <p className="text-[11px] text-[var(--text-muted)] mt-1.5 font-sans">
+            Copy this secret from your Razorpay Dashboard webhook configuration. HookLens uses it only to verify Razorpay webhook signatures.
+          </p>
+
+          {secretError && (
+            <div className="mt-2 p-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-xs font-mono text-red-500 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{secretError}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Advanced Settings Expandable Accordion */}
       <div className="border border-[var(--border-subtle)] rounded-xl overflow-hidden bg-[var(--bg-app)]">
